@@ -1,0 +1,34 @@
+{
+  "summary": "Frontend-only Playwright e2e of Probability Dungeon. Title→Playing transition, HUD (3 hearts, ROOM 1/8), 512x384 canvas, WASD/Arrow movement, 'o' attack, room lock, robot proximity, Quiz dialog (question + 4 options), Exit-once close, numeric tab+input+submit, multi-choice answer + feedback, and gameover-screen all verified. Robot destroy-on-2nd-Exit could not be browser-verified because the player was killed by skeletons before re-approach, but the code path (handleQuizExit increments exitClicks; >=2 sets robot.destroyed=true) is correct.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Robot 2nd-Exit destroy", "issue": "Could not verify in browser because skeletons kill player before re-approach. After first Exit click, the 14px anti-retrigger bump plus aggressive skeleton chasing makes re-approach without dying very hard during automated test. Code logic (robot.exitClicks>=2 -> destroyed=true) is correct; recommend manual verification or temporarily disabling skeletons for QA path.", "affected_selectors": ["[data-testid=quiz-exit-btn]"]}
+    ],
+    "design_issues": [
+      {"screen": "Canvas2D", "issues": ["Console warning: 'Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true.' Non-blocking but adds noise; consider passing {willReadFrequently:true} to getContext('2d') if any sprite drawer reads pixels."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Consider giving the player brief invulnerability or spawning skeletons farther from the entrance; currently first-room skeletons can kill the player in <5s of idle, blocking re-approach to robots in QA.",
+    "Optionally suppress the willReadFrequently Canvas2D console warning by setting the context option.",
+    "Manually verify that clicking Exit twice on the same robot removes it from the canvas (sfxKill should play and proximity should no longer reopen the dialog)."
+  ],
+  "critical_code_review_comments": [
+    "ProbabilityDungeon.jsx is ~700 lines; consider splitting room-build / loop / render into separate modules.",
+    "startLoop is restarted on every quiz.open or screen change (useEffect dep). This works but the closure over quiz.open is the only reason; refactor to read quiz state via stateRef to avoid re-creating the RAF loop.",
+    "sfxStep() is called every frame while moving (no throttle) — may produce audio artifacts; throttle to e.g. 180ms.",
+    "After first Exit, player.x/y is bumped by 14px which can push player into a wall corner; bumpback should be clamped to room bounds.",
+    "Numeric feedback message uses question.numeric.toUpperCase() unconditionally; will throw if question.numeric is undefined for any entry — add guard."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not tested per request)", "frontend": "~92% (12/13 verified items pass; 1 item — robot destroy on 2nd Exit — unverifiable due to skeleton lethality, code path is correct)"},
+  "test_credentials": "N/A",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Use Playwright with keyboard.down('ArrowRight')+keyboard.down('ArrowUp') for ~2-4s after pressing start to reach the upper robot at (192,64). The quiz dialog has data-testid='quiz-dialog'. Skeletons kill the player quickly (3 hearts, contact damage 1 per 700ms iframe) — to verify 2nd-Exit destroy you may need to attack with rapid 'o' presses while moving. Game-over and victory screens use data-testid='gameover-screen'/'victory-screen' with 'restart-btn'.",
+  "rca of the issue": "Robot 2nd-Exit destroy not browser-verifiable: after handleQuizExit closes the dialog, the player is bumped only 14px away from the robot. While quiz is closed, normal game logic resumes; skeletons (which were chasing during the 'frozen during quiz' period) are now adjacent to the player and deal contact damage every 700ms, killing the player before they can re-cross the 40px ROBOT_PROXIMITY_PX threshold to re-trigger the dialog. Mitigation: extend iframes after quiz close (e.g., player.iframesUntil = st.time + 1200) so player has time to re-approach robot, or freeze skeletons while quiz is open."
+}
