@@ -214,7 +214,7 @@ export default function ProbabilityDungeon() {
   const startLoop = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { willReadFrequently: false });
     ctx.imageSmoothingEnabled = false;
 
     const tick = (ts) => {
@@ -522,6 +522,26 @@ export default function ProbabilityDungeon() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quiz.open, screen]);
 
+  // After-quiz recovery: push player away from robot and grant brief iframes
+  // so skeletons can't immediately kill them while they reposition.
+  const recoverFromQuiz = (st, robot) => {
+    if (!st || !robot) return;
+    const p = st.player;
+    const cx = p.x + p.w / 2;
+    const cy = p.y + p.h / 2;
+    const rx = robot.x + robot.w / 2;
+    const ry = robot.y + robot.h / 2;
+    let dxr = cx - rx;
+    let dyr = cy - ry;
+    const len = Math.hypot(dxr, dyr) || 1;
+    dxr /= len;
+    dyr /= len;
+    const PUSH = 56; // larger than ROBOT_PROXIMITY_PX (40) so we exit trigger zone
+    p.x = Math.max(TILE + 1, Math.min(W - TILE - p.w - 1, p.x + dxr * PUSH));
+    p.y = Math.max(TILE + 1, Math.min(H - TILE - p.h - 1, p.y + dyr * PUSH));
+    p.iframesUntil = st.time + 1500;
+  };
+
   // ----- Quiz callbacks -----
   const handleQuizExit = () => {
     const st = stateRef.current;
@@ -534,6 +554,7 @@ export default function ProbabilityDungeon() {
         robot.destroyed = true;
         sfxKill();
       }
+      recoverFromQuiz(st, robot);
     }
     setQuiz({ open: false, robotId: null, question: null, exitClicks: 0 });
   };
@@ -553,6 +574,7 @@ export default function ProbabilityDungeon() {
         // Move robot to a "satisfied" state by advancing question
         robot.questionIdx = (robot.questionIdx + 1) % PROBABILITY_QUESTIONS.length;
       }
+      if (robot) recoverFromQuiz(st, robot);
     }
     setQuiz({ open: false, robotId: null, question: null, exitClicks: 0 });
   };
