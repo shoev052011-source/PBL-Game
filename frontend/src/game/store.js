@@ -1,6 +1,7 @@
-// localStorage-backed save (coins, ownedItems, equipped, ownedCharacters, currentCharacter, currentBiome, owned/current weapon).
+// localStorage-backed save (coins, ownedItems, equipped, ownedCharacters, currentCharacter,
+// currentBiome, owned/current weapon, biomesUnlocked, per-biome level progress).
 
-const KEY = "probability-dungeon-save-v2";
+const KEY = "probability-dungeon-save-v3";
 
 const DEFAULT = {
   coins: 0,
@@ -11,25 +12,28 @@ const DEFAULT = {
   ownedWeapons: ["sword"],
   weapon: "sword",
   currentBiome: "dungeon",
-  biomesUnlocked: ["dungeon"], // unlocked after first clear of previous biome
+  biomesUnlocked: ["dungeon"],
+  // per-biome highest level completed (0 means nothing completed yet)
+  progress: { dungeon: 0, hell: 0, sakura: 0, ice: 0, tech: 0 },
 };
 
 const load = () => {
   try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return { ...DEFAULT, equipped: { ...DEFAULT.equipped } };
+    const raw = localStorage.getItem(KEY) || localStorage.getItem("probability-dungeon-save-v2");
+    if (!raw) return { ...DEFAULT, equipped: { ...DEFAULT.equipped }, progress: { ...DEFAULT.progress } };
     const parsed = JSON.parse(raw);
     return {
       ...DEFAULT,
       ...parsed,
       equipped: { ...DEFAULT.equipped, ...(parsed.equipped || {}) },
+      progress: { ...DEFAULT.progress, ...(parsed.progress || {}) },
       ownedItems: parsed.ownedItems || [],
       ownedCharacters: parsed.ownedCharacters || ["hero"],
       ownedWeapons: parsed.ownedWeapons || ["sword"],
       biomesUnlocked: parsed.biomesUnlocked || ["dungeon"],
     };
   } catch {
-    return { ...DEFAULT, equipped: { ...DEFAULT.equipped } };
+    return { ...DEFAULT, equipped: { ...DEFAULT.equipped }, progress: { ...DEFAULT.progress } };
   }
 };
 
@@ -105,8 +109,27 @@ export const unlockBiome = (id) => {
   persist(); emit();
 };
 
+// Record level completion. Stores highest level cleared. Auto-unlocks next biome
+// when player crosses the threshold (default 5 levels in the current biome).
+export const recordLevelClear = (biomeId, level, unlockThreshold = 5, nextBiomeId = null) => {
+  const cur = state.progress[biomeId] || 0;
+  const newProgress = { ...state.progress, [biomeId]: Math.max(cur, level) };
+  let biomesUnlocked = state.biomesUnlocked;
+  if (
+    nextBiomeId &&
+    newProgress[biomeId] >= unlockThreshold &&
+    !biomesUnlocked.includes(nextBiomeId)
+  ) {
+    biomesUnlocked = [...biomesUnlocked, nextBiomeId];
+  }
+  state = { ...state, progress: newProgress, biomesUnlocked };
+  persist(); emit();
+};
+
+export const getMaxLevel = (biomeId) => state.progress[biomeId] || 0;
+
 export const resetSave = () => {
-  state = { ...DEFAULT, equipped: { ...DEFAULT.equipped } };
+  state = { ...DEFAULT, equipped: { ...DEFAULT.equipped }, progress: { ...DEFAULT.progress } };
   persist(); emit();
 };
 

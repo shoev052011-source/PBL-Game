@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import QuizDialog from "./QuizDialog";
-import { useStore, addCoins, addWeapon, unlockBiome } from "./store";
+import { useStore, addCoins, addWeapon, unlockBiome, recordLevelClear } from "./store";
 import { rollChestReward, WEAPON_BY_ID } from "./items";
 import { BIOME_BY_ID, BIOMES } from "./biomes";
-import { pickQuestion } from "./math";
+import { generateQuestion } from "./math";
 import {
   drawFloorTile, drawWallTile, drawDoorTile, drawPillar, drawPit, drawChest,
   drawPlayer, drawRobot, drawSlash, drawShatter, drawTwinBeam, drawPetal,
@@ -33,7 +33,7 @@ const IFRAME_MS = 700;
 const SAFETY_BUFFER_PX = 56;
 const ROBOT_PROXIMITY_PX = 48;
 const CHEST_PROXIMITY_PX = 34;
-const TOTAL_ROOMS = 6;
+const TOTAL_ROOMS = 3;
 const BEAM_LENGTH = 320;
 const BEAM_DMG_INTERVAL_MS = 240;
 
@@ -86,7 +86,7 @@ const ROOM_TORCHES = [
   [{ c: 5, r: 0 }, { c: 10, r: 0 }, { c: 15, r: 0 }, { c: 5, r: 13 }, { c: 10, r: 13 }, { c: 15, r: 13 }],
 ];
 
-const buildRoom = (index, total, biome) => {
+const buildRoom = (index, total, biome, level) => {
   const walls = buildRoomWalls();
   for (const w of walls) {
     if (w.x === ENTRANCE_TILE.x && w.y === ENTRANCE_TILE.y) { w.kind = "door-entrance"; w.solid = true; }
@@ -100,9 +100,11 @@ const buildRoom = (index, total, biome) => {
   }
   const pits = obstacles.filter((o) => o.kind === "pit");
 
-  // Biome-specific mobs
+  // Biome-specific mobs — count scales with level too
   const mobTypes = biome.mobs;
-  const mobCount = Math.min(3 + Math.floor(index * 0.7), 7);
+  const levelBoost = Math.floor((level - 1) / 5); // +0..+2 mobs across the 15 levels
+  const mobCount = Math.min(3 + Math.floor(index * 0.7) + levelBoost, 8);
+  const mobHp = 2 + Math.floor(index / 2) + Math.floor((level - 1) / 4);
   const mobs = [];
   for (let i = 0; i < mobCount; i++) {
     let tries = 0;
@@ -113,7 +115,7 @@ const buildRoom = (index, total, biome) => {
         mobs.push({
           id: `mb-${index}-${i}`, type: mobTypes[i % mobTypes.length],
           x: sx, y: sy, w: ENEMY_SIZE, h: ENEMY_SIZE,
-          hp: 2 + Math.floor(index / 2), hurtUntil: 0, alive: true,
+          hp: mobHp, hurtUntil: 0, alive: true,
           deathProgress: 0, lastBeamHit: 0,
         });
         break;
@@ -128,14 +130,14 @@ const buildRoom = (index, total, biome) => {
     { x: 14 * TILE, y: 4 * TILE },
     { x: 5 * TILE, y: 10 * TILE },
   ];
-  const robotCount = index === 0 ? 1 : Math.random() < 0.7 ? 1 : 2;
+  const robotCount = index === 0 ? 1 : Math.random() < 0.6 ? 1 : 2;
   const robots = [];
   for (let i = 0; i < robotCount; i++) {
     const spot = robotSpots[(index + i) % robotSpots.length];
     robots.push({
       id: `rb-${index}-${i}`, x: spot.x, y: spot.y, w: NPC_SIZE, h: NPC_SIZE,
       exitClicks: 0, destroyed: false, isCompleted: false,
-      question: pickQuestion(biome.mathTier, index * 3 + i),
+      question: generateQuestion(biome.mathTier, level),
     });
   }
 
@@ -458,9 +460,10 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
             sfxVictory();
             stopAmbient();
             if (st.runCoins > 0) addCoins(st.runCoins);
-            // Unlock next biome
+            // Record level cleared + auto-unlock next biome at threshold
             const idx = BIOMES.findIndex((b) => b.id === biome.id);
-            if (idx >= 0 && idx + 1 < BIOMES.length) unlockBiome(BIOMES[idx + 1].id);
+            const next = idx + 1 < BIOMES.length ? BIOMES[idx + 1].id : null;
+            recordLevelClear(biome.id, level, 5, next);
           } else {
             st.currentRoom += 1;
             const next = st.rooms[st.currentRoom];
@@ -731,7 +734,7 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
       <div className="min-h-screen flex items-center justify-center px-6 py-10" data-testid={isWin ? "victory-screen" : "gameover-screen"}>
         <div className="max-w-2xl w-full text-center fade-in">
           <h1 className={`pixel-font text-4xl sm:text-6xl mb-6 ${isWin ? "text-[#9affd6] glow-cyan" : "text-[#ff6ec7] glow-magenta"}`}>
-            {isWin ? `${biome.short} CLEARED` : "GAME OVER"}
+            {isWin ? `LEVEL ${level} CLEARED` : "GAME OVER"}
           </h1>
           <p className="text-xl text-[#bba6e0] mb-4">
             {isWin
@@ -756,7 +759,7 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
           <div className="flex items-center gap-1" data-testid="hud-hearts">{renderHearts()}</div>
         </div>
         <div className="pixel-font text-xs glow-cyan" data-testid="hud-room" style={{ color: biome.color }}>
-          {biome.short} · ROOM {hudRoom} / {TOTAL_ROOMS}
+          {biome.short} · LVL {level} · ROOM {hudRoom}/{TOTAL_ROOMS}
         </div>
         <div className="flex items-center gap-2" data-testid="hud-coins">
           <span className="pixel-font text-xs text-[#f4bf4f]">COINS</span>

@@ -10,6 +10,7 @@ import ProbabilityDungeon from "./game/ProbabilityDungeon";
 function App() {
   const [screen, setScreen] = useState("hub");
   const [biomeId, setBiomeId] = useState(null);
+  const [level, setLevel] = useState(1);
 
   return (
     <div className="App" data-testid="app-root">
@@ -24,14 +25,15 @@ function App() {
       {screen === "character" && <CharacterScreen onBack={() => setScreen("hub")} />}
       {screen === "biome" && (
         <BiomeSelect
-          onPick={(id) => { setBiomeId(id); setScreen("dungeon"); }}
+          onPick={(id, lvl) => { setBiomeId(id); setLevel(lvl); setScreen("dungeon"); }}
           onBack={() => setScreen("hub")}
         />
       )}
       {screen === "dungeon" && (
         <ProbabilityDungeon
           biomeId={biomeId}
-          onExit={() => setScreen("hub")}
+          level={level}
+          onExit={() => setScreen("biome")}
         />
       )}
       <Toaster />
