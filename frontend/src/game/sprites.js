@@ -121,18 +121,25 @@ export const drawFloorTile = (ctx, x, y, size, variant, biome, t = 0) => {
   // top highlight
   ctx.fillStyle = "rgba(255,255,255,0.06)";
   ctx.fillRect(x + 1, y + 1, size - 2, 1);
-  // cracked-tile variations
+  // cracked-tile variations (chunky, biome-readable cracks + mossy patches)
   if (cracked) {
-    ctx.fillStyle = "#1a1726";
-    ctx.fillRect(x + 4, y + 7, 4, 1);
-    ctx.fillRect(x + 7, y + 8, 1, 3);
-    ctx.fillRect(x + size - 10, y + size - 12, 5, 1);
+    ctx.fillStyle = "#13101e";
+    ctx.fillRect(x + 3, y + 6, 6, 1);
+    ctx.fillRect(x + 5, y + 7, 1, 4);
+    ctx.fillRect(x + 6, y + 10, 4, 1);
+    ctx.fillRect(x + size - 12, y + size - 11, 7, 1);
+    ctx.fillRect(x + size - 10, y + size - 14, 1, 4);
+    // moss / lichen accent
+    ctx.fillStyle = "rgba(122, 200, 110, 0.35)";
+    ctx.fillRect(x + 3, y + 6, 2, 1);
+    ctx.fillRect(x + size - 12, y + size - 11, 2, 1);
   }
-  // dust speck
+  // small rune speckles
   if (variant % 5 === 0) {
-    ctx.fillStyle = "rgba(190,160,255,0.10)";
+    ctx.fillStyle = "rgba(190,160,255,0.18)";
     ctx.fillRect(x + 5, y + 4, 1, 1);
     ctx.fillRect(x + size - 7, y + size - 9, 1, 1);
+    ctx.fillRect(x + size / 2 - 2, y + 3, 1, 1);
   }
 };
 

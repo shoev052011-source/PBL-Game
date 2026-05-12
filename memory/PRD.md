@@ -1,38 +1,50 @@
-# Probability Dungeon — PRD (rev 3)
+# Probability Dungeon — PRD (rev 4)
 
 ## Original Problem
-Top-down pixel-art ARPG with rooms, robots that quiz on probability, skeletons, anti-stuck physics, safety buffer, attack with 'O'. Expanded to: chests + economy + shop + character customization with persistence; then again expanded to: 10 characters, 5 biomes, tiered math, biome-mobs, Twin-Beam Laser, robot "Good job" double-lock, mini-map.
+Top-down pixel-art ARPG with rooms, probability quizzes, skeletons, anti-stuck physics, safety buffer, attack with 'O'. Expanded across 4 iterations to: chests + economy + shop, character customization with persistence, 10 characters, 5 biomes with tiered math + biome-specific mobs + twin-beam laser + robot double-lock + mini-map. Iter 4 = environment-visual overhaul.
 
-## Architecture (Feb 2026)
-- 100% client-side React+Canvas. No backend usage.
+## Architecture
+- 100% client-side React + Canvas. Backend hello-world only.
 - State machine in `App.js`: hub → {shop | character | biome → dungeon} → hub
 - Persistence via localStorage key `probability-dungeon-save-v2`
-- Web Audio API synth for ambient + SFX
+- Web Audio API synth (ambient + SFX)
 
-## Implemented (rev 3)
-- **10 characters** (Hero free + 10 purchasable 120–240 coins): Hero, Knight, Paladin, Alchemist, Assassin, Vampire, Engineer, Werewolf, Priest, Druid, Necromancer with palette + accessory (halo, fangs, antlers, goggles, mask, skull, etc.)
-- **5 biomes**: Dungeon, Hell, Sakura, Ice, Tech — own tile palettes, mob types, math difficulty; sequential unlock on clear; ice biome has slippery friction physics; sakura has petal particles
-- **Tiered math** (math.js): T0 arithmetic, T1 mult/div, T2 fractions, T3 percentages, T4 algebra + complex probability
-- **Biome mobs (2 each)**: skeleton+zombie, lavaslime+imp, spirit+blossombat, icegolem+frostwolf, drone+sentry — shatter death FX + coin drop
-- **Twin-Beam Laser** rare weapon: drops from tier 3+ chests, holds 'O' to fire 2 parallel beams with DOT
-- **Robot Double-Lock**: correct answer → robot says "Good job!" → `isCompleted=true`, no re-trigger. Exit opens only when (mobs dead) AND (every robot completed or destroyed-via-2-Exit-clicks)
-- **Mini-map** top-right showing room layout, mobs, robot, chests, player
-- **Layered player rendering**: base char + pants + shirt + hat + accessory on any of 10 chars
-- **Shop**: 16 clothes across 4 slots, BUY/EQUIP, disabled when broke
-- **Character screen**: 10-char roster with locked overlay + price; live preview canvas
-- **Persistence**: coins, owned items/chars/weapons, equipped, currentChar, currentBiome, biomesUnlocked
+## Implemented (rev 4 — visual overhaul)
+- **Tilemap floor & walls**: stone-brick floor with cracked-tile variations + moss/rune accents; 3D wall shading (lighter top, darker bottom).
+- **Biome-specific tileset reskins**:
+  - Dungeon: purple-grey stone brick + rune speckles + cracks
+  - **Hell**: obsidian dark-red/black floor + animated lava strips + deep red brick walls with glowing cracks
+  - **Sakura**: warm tan wood-plank floor + grain + pink dust speckles, green bamboo wall accents
+  - Ice: pale-blue ice blocks with shine, light-blue walls
+  - Tech: dark navy metal panels + cyan circuit traces + LED dots, neon wall seams
+- **Wall-mounted torches**: flickering core/mid/outer flame + soft halo, biome-tinted (orange / pink / cyan).
+- **Pillars** as solid obstacles (biome-themed).
+- **Chests in corners** of every room.
+- **Rugs/platforms under robots** (biome-coloured).
+- **+30% larger room**: 20×14 grid @ 32px = 640×448 (was 16×12 = 512×384). Display max 1280px.
+- **Properly-scaled entities**: player 26px, mobs 26px, robot 32px, chest 30px.
+- **Mini-map** top-right with metallic frame (gradient grey + corner bolts) showing player, mobs, robot status, chests, torches, pillars, doors.
 
-## Files (rev 3)
+## Carry-over Features
+- 10 characters (Hero free + Knight, Paladin, Alchemist, Assassin, Vampire, Engineer, Werewolf, Priest, Druid, Necromancer)
+- 5 biomes with sequential unlock + tiered math (arithmetic → algebra/probability)
+- 2 mob types per biome with shatter death FX + coin drops
+- Twin-Beam Laser legendary weapon (tier 3+ chests)
+- Robot "Good job!" double-lock (cannot re-trigger; exit gates on mobs-dead AND robots-handled)
+- Sakura petal particles
+- Ice biome slippery friction physics
+- Persistence: coins / owned items / owned characters / owned weapons / equipped / current char / biome unlocks
+
+## Files
 - `App.js`, `App.css`
-- `game/store.js` (localStorage), `game/items.js` (clothes + weapons), `game/characters.js` (10 chars), `game/biomes.js` (5), `game/math.js` (tiered Q), `game/questions.js` (legacy prob bank)
-- `game/sprites.js` (drawPlayer, MOB_DRAWERS, drawTwinBeam, drawShatter, drawPetal, biome tiles)
+- `game/store.js`, `game/items.js`, `game/characters.js`, `game/biomes.js`, `game/math.js`, `game/questions.js`
+- `game/sprites.js` (drawPlayer, MOB_DRAWERS, drawTwinBeam, drawShatter, drawPetal, drawTorch, drawRug, drawMiniMapFrame, biome-aware drawFloorTile/drawWallTile/drawPillar/drawPit)
 - `game/audio.js`
 - `game/MainHub.jsx`, `game/Shop.jsx`, `game/CharacterScreen.jsx`, `game/BiomeSelect.jsx`, `game/ProbabilityDungeon.jsx`, `game/QuizDialog.jsx`
 
 ## Backlog
-- P1: Boss room with custom large sprite per biome
+- P1: Boss room per biome (large unique sprite for room 6)
 - P1: Audio mute toggle in HUD
 - P1: Daily seeded run / leaderboard
-- P2: Weapon select menu (currently latest pickup overrides)
-- P2: Mobile touch controls
-- P2: Backend high-score persistence
+- P2: Sci-fi-styled torches for tech/ice biomes (metal sconce, icicle sconce)
+- P2: Weapon select menu, mobile touch controls, backend high-score persistence

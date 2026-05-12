@@ -616,10 +616,10 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
     // player (blinks)
     ctx.fillStyle = Math.floor(st.time / 250) % 2 === 0 ? "#ffffff" : "#9affd6";
     ctx.fillRect(MM_X + Math.floor((st.player.x / W) * MM_W), MM_Y + Math.floor((st.player.y / H) * MM_H), 4, 4);
-    // label on the frame
+    // label on the frame (positioned below the top metallic band so it doesn't clip)
     ctx.fillStyle = "#e8f4ff";
-    ctx.font = "9px monospace";
-    ctx.fillText(`${biome.short}  ${st.currentRoom + 1}/${TOTAL_ROOMS}`, MM_X + 2, MM_Y - 7);
+    ctx.font = "10px monospace";
+    ctx.fillText(`${biome.short}  ${st.currentRoom + 1}/${TOTAL_ROOMS}`, MM_X + 4, MM_Y + 12);
   };
 
   const recoverFromQuiz = (st, robot) => {
