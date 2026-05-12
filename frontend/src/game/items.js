@@ -47,7 +47,7 @@ export const rollChestReward = (chestTier = 1) => {
   // Weapon, weighted by tier
   let pool;
   if (chestTier <= 1) pool = WEAPONS.filter((w) => w.tier <= 2);
-  else if (chestTier === 2) pool = WEAPONS.filter((w) => w.tier <= 2);
+  else if (chestTier === 2) pool = WEAPONS.filter((w) => w.tier <= 3);
   else if (chestTier === 3) pool = WEAPONS.filter((w) => w.tier <= 3);
   else pool = WEAPONS; // tier 4 — twin-beam possible
   const w = pool[Math.floor(Math.random() * pool.length)];

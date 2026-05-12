@@ -1,58 +1,38 @@
-# Probability Dungeon — PRD
+# Probability Dungeon — PRD (rev 3)
 
-## Original Problem Statement
-Create a top-down pixel-art ARPG called "Probability Dungeon."
-Core mechanics:
-- Room Entry & Locking with 1.5-tile (~56px) safety buffer
-- Anti-stuck physics (nudge to room center)
-- Skeletons: spawn on lock, chase player, contact damage, no dialogue
-- Robots: stationary, proximity-trigger Probability Quiz UI
-- Quiz UI Exit button: 1st click closes, 2nd click destroys robot
-- WASD/Arrows movement, 'O' attack
-- 'O' damages skeletons only (not robots)
-- 20 basic probability questions
-- Pixel-art 2D top-down style
+## Original Problem
+Top-down pixel-art ARPG with rooms, robots that quiz on probability, skeletons, anti-stuck physics, safety buffer, attack with 'O'. Expanded to: chests + economy + shop + character customization with persistence; then again expanded to: 10 characters, 5 biomes, tiered math, biome-mobs, Twin-Beam Laser, robot "Good job" double-lock, mini-map.
 
-## User Choices
-- Scope: 8-room medium campaign (with mention of small demo + endless as future)
-- HP: 3-heart system, game over on death
-- Visuals: programmatic pixel sprites
-- Quiz format: multiple-choice + numeric (both)
-- Audio: SFX + nostalgic ambient music
+## Architecture (Feb 2026)
+- 100% client-side React+Canvas. No backend usage.
+- State machine in `App.js`: hub → {shop | character | biome → dungeon} → hub
+- Persistence via localStorage key `probability-dungeon-save-v2`
+- Web Audio API synth for ambient + SFX
 
-## Architecture
-- React 19 SPA with Canvas 2D rendering (512x384 backbuffer, CSS-scaled, pixelated)
-- Game loop via requestAnimationFrame; React state only for screen + HUD + quiz dialog
-- Web Audio API synth for all SFX + ambient loop (no external audio assets)
-- Shadcn UI Dialog + Tabs + Input + Button for the Quiz UI
-- Backend: untouched (FastAPI hello-world only — game is fully client-side)
+## Implemented (rev 3)
+- **10 characters** (Hero free + 10 purchasable 120–240 coins): Hero, Knight, Paladin, Alchemist, Assassin, Vampire, Engineer, Werewolf, Priest, Druid, Necromancer with palette + accessory (halo, fangs, antlers, goggles, mask, skull, etc.)
+- **5 biomes**: Dungeon, Hell, Sakura, Ice, Tech — own tile palettes, mob types, math difficulty; sequential unlock on clear; ice biome has slippery friction physics; sakura has petal particles
+- **Tiered math** (math.js): T0 arithmetic, T1 mult/div, T2 fractions, T3 percentages, T4 algebra + complex probability
+- **Biome mobs (2 each)**: skeleton+zombie, lavaslime+imp, spirit+blossombat, icegolem+frostwolf, drone+sentry — shatter death FX + coin drop
+- **Twin-Beam Laser** rare weapon: drops from tier 3+ chests, holds 'O' to fire 2 parallel beams with DOT
+- **Robot Double-Lock**: correct answer → robot says "Good job!" → `isCompleted=true`, no re-trigger. Exit opens only when (mobs dead) AND (every robot completed or destroyed-via-2-Exit-clicks)
+- **Mini-map** top-right showing room layout, mobs, robot, chests, player
+- **Layered player rendering**: base char + pants + shirt + hat + accessory on any of 10 chars
+- **Shop**: 16 clothes across 4 slots, BUY/EQUIP, disabled when broke
+- **Character screen**: 10-char roster with locked overlay + price; live preview canvas
+- **Persistence**: coins, owned items/chars/weapons, equipped, currentChar, currentBiome, biomesUnlocked
 
-## Implemented (Feb 2026)
-- Title / Playing / Game Over / Victory screens
-- 8 procedurally-built rooms with increasing skeleton count
-- Player: 3 HP, WASD/Arrow movement, 'O' weapon swing with arc slash, hurt iframes (700ms), post-quiz iframes (1500ms)
-- Skeletons: spawn on room lock, A* free chase, contact damage, knockback, separation, frozen during quiz
-- Robots: stationary; 40px proximity opens quiz; 2nd Exit click destroys
-- Quiz: 20 probability questions, multi-choice + numeric tabs, correct/incorrect feedback, heart heal on correct
-- Room lock: door-entrance becomes solid only after player crosses 56px buffer; anti-stuck nudge to room center
-- Exit door: opens after all skeletons cleared; walking onto right-edge exit advances to next room
-- HUD: 3-heart display + ROOM x / 8 + control hints
-- Sounds: footstep, sword swing, hit, kill, lock, unlock, quiz open, correct, wrong, game over, victory, ambient minor-key chiptune loop
-
-## Files
-- /app/frontend/src/App.js
-- /app/frontend/src/App.css
-- /app/frontend/src/game/ProbabilityDungeon.jsx (main)
-- /app/frontend/src/game/QuizDialog.jsx
-- /app/frontend/src/game/sprites.js
-- /app/frontend/src/game/audio.js
-- /app/frontend/src/game/questions.js
+## Files (rev 3)
+- `App.js`, `App.css`
+- `game/store.js` (localStorage), `game/items.js` (clothes + weapons), `game/characters.js` (10 chars), `game/biomes.js` (5), `game/math.js` (tiered Q), `game/questions.js` (legacy prob bank)
+- `game/sprites.js` (drawPlayer, MOB_DRAWERS, drawTwinBeam, drawShatter, drawPetal, biome tiles)
+- `game/audio.js`
+- `game/MainHub.jsx`, `game/Shop.jsx`, `game/CharacterScreen.jsx`, `game/BiomeSelect.jsx`, `game/ProbabilityDungeon.jsx`, `game/QuizDialog.jsx`
 
 ## Backlog
-- P1: Add an audio-mute toggle in HUD
-- P1: Boss room (room 8) with custom big-skeleton sprite
-- P1: Question-bank shuffle per playthrough (currently deterministic)
-- P2: Endless/procedural mode
-- P2: Power-ups / pickups (potions, keys, weapons)
-- P2: Persisted high score / completion time via backend
+- P1: Boss room with custom large sprite per biome
+- P1: Audio mute toggle in HUD
+- P1: Daily seeded run / leaderboard
+- P2: Weapon select menu (currently latest pickup overrides)
 - P2: Mobile touch controls
+- P2: Backend high-score persistence

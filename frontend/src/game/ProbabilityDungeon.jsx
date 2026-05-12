@@ -532,7 +532,7 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
   };
 
   const drawMiniMap = (ctx, st, room) => {
-    const MM_W = 96, MM_H = 64, MM_X = W - MM_W - 6, MM_Y = 6;
+    const MM_W = 96, MM_H = 64, MM_X = W - MM_W - 6, MM_Y = 16;
     // bg
     ctx.fillStyle = "rgba(20, 15, 30, 0.86)";
     ctx.fillRect(MM_X - 2, MM_Y - 2, MM_W + 4, MM_H + 4);
