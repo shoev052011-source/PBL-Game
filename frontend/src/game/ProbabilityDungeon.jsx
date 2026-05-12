@@ -7,6 +7,7 @@ import { pickQuestion } from "./math";
 import {
   drawFloorTile, drawWallTile, drawDoorTile, drawPillar, drawPit, drawChest,
   drawPlayer, drawRobot, drawSlash, drawShatter, drawTwinBeam, drawPetal,
+  drawTorch, drawRug, drawMiniMapFrame,
   MOB_DRAWERS,
 } from "./sprites";
 import {
@@ -16,31 +17,31 @@ import {
 import { toast } from "sonner";
 
 const TILE = 32;
-const COLS = 16;
-const ROWS = 12;
+const COLS = 20;
+const ROWS = 14;
 const W = COLS * TILE;
 const H = ROWS * TILE;
-const PLAYER_SIZE = 22;
-const ENEMY_SIZE = 22;
-const NPC_SIZE = 24;
-const CHEST_SIZE = 24;
-const PLAYER_SPEED = 2.0;
-const ENEMY_SPEED = 0.95;
-const ATTACK_RANGE = 30;
+const PLAYER_SIZE = 26;
+const ENEMY_SIZE = 26;
+const NPC_SIZE = 32;
+const CHEST_SIZE = 30;
+const PLAYER_SPEED = 2.2;
+const ENEMY_SPEED = 1.05;
+const ATTACK_RANGE = 36;
 const ATTACK_DURATION_MS = 220;
 const IFRAME_MS = 700;
 const SAFETY_BUFFER_PX = 56;
-const ROBOT_PROXIMITY_PX = 40;
-const CHEST_PROXIMITY_PX = 28;
+const ROBOT_PROXIMITY_PX = 48;
+const CHEST_PROXIMITY_PX = 34;
 const TOTAL_ROOMS = 6;
-const BEAM_LENGTH = 260;
+const BEAM_LENGTH = 320;
 const BEAM_DMG_INTERVAL_MS = 240;
 
 const aabb = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 
-const ENTRANCE_TILE = { x: 0, y: 5 * TILE };
-const EXIT_TILE = { x: (COLS - 1) * TILE, y: 5 * TILE };
+const ENTRANCE_TILE = { x: 0, y: 7 * TILE };
+const EXIT_TILE = { x: (COLS - 1) * TILE, y: 7 * TILE };
 
 const buildRoomWalls = () => {
   const walls = [];
@@ -55,22 +56,34 @@ const buildRoomWalls = () => {
   return walls;
 };
 
-// Obstacle layouts per room index
+// Obstacle layouts per room index (20x14 grid)
 const ROOM_OBSTACLES = [
-  [{ kind: "P", c: 7, r: 3 }, { kind: "P", c: 9, r: 3 }],
-  [{ kind: "P", c: 5, r: 4 }, { kind: "P", c: 10, r: 7 }, { kind: ".", c: 8, r: 5 }],
-  [{ kind: "P", c: 6, r: 2 }, { kind: "P", c: 6, r: 8 }, { kind: "P", c: 11, r: 5 }],
-  [{ kind: "P", c: 4, r: 6 }, { kind: "P", c: 8, r: 3 }, { kind: "P", c: 12, r: 8 }, { kind: ".", c: 7, r: 6 }],
-  [{ kind: "P", c: 5, r: 3 }, { kind: "P", c: 5, r: 8 }, { kind: "P", c: 10, r: 3 }, { kind: "P", c: 10, r: 8 }],
-  [{ kind: "P", c: 7, r: 5 }, { kind: "P", c: 8, r: 5 }, { kind: ".", c: 4, r: 6 }, { kind: ".", c: 11, r: 6 }],
+  [{ kind: "P", c: 9, r: 4 }, { kind: "P", c: 11, r: 4 }, { kind: "P", c: 9, r: 9 }, { kind: "P", c: 11, r: 9 }],
+  [{ kind: "P", c: 6, r: 5 }, { kind: "P", c: 13, r: 8 }, { kind: ".", c: 10, r: 6 }, { kind: ".", c: 10, r: 7 }],
+  [{ kind: "P", c: 7, r: 3 }, { kind: "P", c: 7, r: 10 }, { kind: "P", c: 14, r: 3 }, { kind: "P", c: 14, r: 10 }],
+  [{ kind: "P", c: 5, r: 7 }, { kind: "P", c: 10, r: 4 }, { kind: "P", c: 15, r: 9 }, { kind: ".", c: 8, r: 7 }, { kind: ".", c: 12, r: 6 }],
+  [{ kind: "P", c: 6, r: 4 }, { kind: "P", c: 6, r: 10 }, { kind: "P", c: 13, r: 4 }, { kind: "P", c: 13, r: 10 }, { kind: ".", c: 10, r: 5 }, { kind: ".", c: 10, r: 8 }],
+  [{ kind: "P", c: 8, r: 6 }, { kind: "P", c: 11, r: 6 }, { kind: "P", c: 8, r: 8 }, { kind: "P", c: 11, r: 8 }, { kind: ".", c: 5, r: 7 }, { kind: ".", c: 14, r: 7 }],
 ];
+// Chest spawn points — in CORNERS (per new requirement)
 const ROOM_CHESTS = [
-  [{ c: 13, r: 2 }],
-  [{ c: 12, r: 9 }, { c: 4, r: 2 }],
-  [{ c: 13, r: 9 }],
-  [{ c: 2, r: 2 }, { c: 13, r: 2 }],
-  [{ c: 2, r: 9 }, { c: 13, r: 9 }],
-  [{ c: 7, r: 2 }, { c: 8, r: 9 }],
+  [{ c: 2, r: 2 }, { c: 17, r: 11 }],
+  [{ c: 17, r: 2 }, { c: 2, r: 11 }],
+  [{ c: 2, r: 2 }, { c: 17, r: 11 }],
+  [{ c: 2, r: 11 }, { c: 17, r: 2 }],
+  [{ c: 2, r: 2 }, { c: 17, r: 2 }],
+  [{ c: 2, r: 11 }, { c: 17, r: 11 }],
+];
+// Wall-mounted torch positions (col, row, side: 'top'|'bottom')
+// Always on the wall row/col itself.
+const ROOM_TORCHES = [
+  // Spread torches on top/bottom walls
+  [{ c: 4, r: 0 }, { c: 10, r: 0 }, { c: 15, r: 0 }, { c: 4, r: 13 }, { c: 10, r: 13 }, { c: 15, r: 13 }],
+  [{ c: 3, r: 0 }, { c: 9, r: 0 }, { c: 16, r: 0 }, { c: 5, r: 13 }, { c: 14, r: 13 }],
+  [{ c: 5, r: 0 }, { c: 11, r: 0 }, { c: 16, r: 0 }, { c: 4, r: 13 }, { c: 11, r: 13 }, { c: 16, r: 13 }],
+  [{ c: 3, r: 0 }, { c: 8, r: 0 }, { c: 13, r: 0 }, { c: 17, r: 0 }, { c: 8, r: 13 }, { c: 13, r: 13 }],
+  [{ c: 4, r: 0 }, { c: 10, r: 0 }, { c: 16, r: 0 }, { c: 4, r: 13 }, { c: 10, r: 13 }, { c: 16, r: 13 }],
+  [{ c: 5, r: 0 }, { c: 10, r: 0 }, { c: 15, r: 0 }, { c: 5, r: 13 }, { c: 10, r: 13 }, { c: 15, r: 13 }],
 ];
 
 const buildRoom = (index, total, biome) => {
@@ -89,12 +102,12 @@ const buildRoom = (index, total, biome) => {
 
   // Biome-specific mobs
   const mobTypes = biome.mobs;
-  const mobCount = Math.min(2 + Math.floor(index * 0.7), 6);
+  const mobCount = Math.min(3 + Math.floor(index * 0.7), 7);
   const mobs = [];
   for (let i = 0; i < mobCount; i++) {
     let tries = 0;
     while (tries < 30) {
-      const sx = 4 * TILE + Math.random() * (W - 6 * TILE);
+      const sx = 5 * TILE + Math.random() * (W - 7 * TILE);
       const sy = 2 * TILE + Math.random() * (H - 4 * TILE);
       if (sx > 5 * TILE) {
         mobs.push({
@@ -110,10 +123,10 @@ const buildRoom = (index, total, biome) => {
   }
 
   const robotSpots = [
-    { x: 6 * TILE, y: 2 * TILE },
-    { x: 9 * TILE, y: 8 * TILE },
-    { x: 11 * TILE, y: 3 * TILE },
-    { x: 4 * TILE, y: 8 * TILE },
+    { x: 8 * TILE, y: 3 * TILE },
+    { x: 12 * TILE, y: 10 * TILE },
+    { x: 14 * TILE, y: 4 * TILE },
+    { x: 5 * TILE, y: 10 * TILE },
   ];
   const robotCount = index === 0 ? 1 : Math.random() < 0.7 ? 1 : 2;
   const robots = [];
@@ -133,8 +146,14 @@ const buildRoom = (index, total, biome) => {
     w: CHEST_SIZE, h: CHEST_SIZE, opened: false,
   }));
 
+  // Wall-mounted torches for this room
+  const torches = (ROOM_TORCHES[index] || []).map((tr) => ({
+    x: tr.c * TILE,
+    y: tr.r * TILE,
+  }));
+
   return {
-    index, isLast: index === total - 1, walls, mobs, robots, chests, pits,
+    index, isLast: index === total - 1, walls, mobs, robots, chests, pits, torches,
     locked: false, cleared: false,
   };
 };
@@ -465,20 +484,27 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
 
   const render = (ctx, st) => {
     const room = st.rooms[st.currentRoom];
-    // Floor
+    // Floor (animated for hell)
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        drawFloorTile(ctx, c * TILE, r * TILE, TILE, (r * 7 + c) % 4, biome);
+        drawFloorTile(ctx, c * TILE, r * TILE, TILE, (r * 7 + c) % 4, biome, st.time);
       }
     }
     // Pits
     for (const p of room.pits) drawPit(ctx, p.x, p.y, TILE, biome, st.time);
+    // Rugs under robots (drawn under)
+    for (const r of room.robots) {
+      if (r.destroyed) continue;
+      drawRug(ctx, r.x - 6, r.y - 4, NPC_SIZE + 12, biome);
+    }
     // Walls
     for (const w of room.walls) {
       if (w.kind === "wall") drawWallTile(ctx, w.x, w.y, TILE, biome);
       else if (w.kind === "wall-pillar") drawPillar(ctx, w.x, w.y, TILE, biome);
       else if (w.kind === "door-entrance" || w.kind === "door-exit") drawDoorTile(ctx, w.x, w.y, TILE, w.solid);
     }
+    // Torches on walls (drawn after walls so they sit on top)
+    for (const tr of room.torches) drawTorch(ctx, tr.x, tr.y, TILE, st.time, biome);
     // Chests
     for (const ch of room.chests) drawChest(ctx, ch.x - 4, ch.y - 4, CHEST_SIZE + 8, ch.opened, biome.chestTier);
     // Robots
@@ -532,13 +558,9 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
   };
 
   const drawMiniMap = (ctx, st, room) => {
-    const MM_W = 96, MM_H = 64, MM_X = W - MM_W - 6, MM_Y = 16;
-    // bg
-    ctx.fillStyle = "rgba(20, 15, 30, 0.86)";
-    ctx.fillRect(MM_X - 2, MM_Y - 2, MM_W + 4, MM_H + 4);
-    ctx.strokeStyle = "#3a2a52";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(MM_X - 2, MM_Y - 2, MM_W + 4, MM_H + 4);
+    const MM_W = 120, MM_H = 84, MM_X = W - MM_W - 12, MM_Y = 18;
+    // metallic frame around the map
+    drawMiniMapFrame(ctx, MM_X, MM_Y, MM_W, MM_H);
     // inner bg = biome floor color
     ctx.fillStyle = biome.floor[0];
     ctx.fillRect(MM_X, MM_Y, MM_W, MM_H);
@@ -553,11 +575,11 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
     const doorExit = room.walls.find((w) => w.kind === "door-exit");
     if (doorEntr) {
       ctx.fillStyle = doorEntr.solid ? "#ff3a6f" : "#9affd6";
-      ctx.fillRect(MM_X, MM_Y + Math.floor(MM_H * 5 / ROWS), 4, Math.ceil(MM_H / ROWS));
+      ctx.fillRect(MM_X, MM_Y + Math.floor(MM_H * 7 / ROWS), 4, Math.ceil(MM_H / ROWS));
     }
     if (doorExit) {
       ctx.fillStyle = doorExit.solid ? "#ff3a6f" : "#9affd6";
-      ctx.fillRect(MM_X + MM_W - 4, MM_Y + Math.floor(MM_H * 5 / ROWS), 4, Math.ceil(MM_H / ROWS));
+      ctx.fillRect(MM_X + MM_W - 4, MM_Y + Math.floor(MM_H * 7 / ROWS), 4, Math.ceil(MM_H / ROWS));
     }
     // pillars
     ctx.fillStyle = biome.pillarColor;
@@ -567,30 +589,37 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
       const my = MM_Y + Math.floor((w.y / H) * MM_H);
       ctx.fillRect(mx, my, 4, 4);
     }
+    // torches
+    ctx.fillStyle = "#ffd166";
+    for (const tr of room.torches) {
+      const mx = MM_X + Math.floor((tr.x / W) * MM_W);
+      const my = MM_Y + Math.floor((tr.y / H) * MM_H);
+      ctx.fillRect(mx + 1, my + 1, 2, 2);
+    }
     // chests
     for (const ch of room.chests) {
       ctx.fillStyle = ch.opened ? "#3a2a52" : "#f4bf4f";
-      ctx.fillRect(MM_X + Math.floor((ch.x / W) * MM_W), MM_Y + Math.floor((ch.y / H) * MM_H), 3, 3);
+      ctx.fillRect(MM_X + Math.floor((ch.x / W) * MM_W), MM_Y + Math.floor((ch.y / H) * MM_H), 4, 4);
     }
     // robots
     for (const r of room.robots) {
       if (r.destroyed) continue;
       ctx.fillStyle = r.isCompleted ? "#5a8a7a" : "#9affd6";
-      ctx.fillRect(MM_X + Math.floor((r.x / W) * MM_W), MM_Y + Math.floor((r.y / H) * MM_H), 3, 3);
+      ctx.fillRect(MM_X + Math.floor((r.x / W) * MM_W), MM_Y + Math.floor((r.y / H) * MM_H), 4, 4);
     }
     // mobs
     for (const m of room.mobs) {
       if (!m.alive) continue;
       ctx.fillStyle = "#ff3a6f";
-      ctx.fillRect(MM_X + Math.floor((m.x / W) * MM_W), MM_Y + Math.floor((m.y / H) * MM_H), 2, 2);
+      ctx.fillRect(MM_X + Math.floor((m.x / W) * MM_W), MM_Y + Math.floor((m.y / H) * MM_H), 3, 3);
     }
-    // player
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(MM_X + Math.floor((st.player.x / W) * MM_W), MM_Y + Math.floor((st.player.y / H) * MM_H), 3, 3);
-    // room label
-    ctx.fillStyle = biome.accent;
-    ctx.font = "8px monospace";
-    ctx.fillText(`${biome.short} ${st.currentRoom + 1}/${TOTAL_ROOMS}`, MM_X + 2, MM_Y - 4);
+    // player (blinks)
+    ctx.fillStyle = Math.floor(st.time / 250) % 2 === 0 ? "#ffffff" : "#9affd6";
+    ctx.fillRect(MM_X + Math.floor((st.player.x / W) * MM_W), MM_Y + Math.floor((st.player.y / H) * MM_H), 4, 4);
+    // label on the frame
+    ctx.fillStyle = "#e8f4ff";
+    ctx.font = "9px monospace";
+    ctx.fillText(`${biome.short}  ${st.currentRoom + 1}/${TOTAL_ROOMS}`, MM_X + 2, MM_Y - 7);
   };
 
   const recoverFromQuiz = (st, robot) => {
@@ -748,7 +777,7 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
           height={H}
           className="dungeon-canvas crt"
           data-testid="game-canvas"
-          style={{ width: "min(96vw, 1024px)", height: "auto", aspectRatio: `${W} / ${H}` }}
+          style={{ width: "min(98vw, 1280px)", height: "auto", aspectRatio: `${W} / ${H}` }}
         />
         <div className="absolute inset-0 pointer-events-none scanlines" />
       </div>

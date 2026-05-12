@@ -4,57 +4,193 @@ import { ITEM_BY_ID } from "./items";
 import { CHARACTER_BY_ID } from "./characters";
 
 // ===== Biome floor/wall =====
-export const drawFloorTile = (ctx, x, y, size, variant, biome) => {
+// Floor: stone-brick base with random "cracked" variations; biome-specific reskins
+// (obsidian for hell, wood-plank for sakura, ice block, metal+circuit for tech).
+export const drawFloorTile = (ctx, x, y, size, variant, biome, t = 0) => {
   const v = variant % 4;
-  const base = biome?.floor?.[v] || ["#1a1726", "#181527", "#1c1828", "#16121f"][v];
-  ctx.fillStyle = base;
+  const cracked = (variant * 13) % 7 === 0; // ~14% chance
+  const id = biome?.id || "dungeon";
+
+  if (id === "hell") {
+    // Obsidian floor with red veins + occasional lava strip
+    const bases = ["#1a0a0a", "#220606", "#0e0202", "#2a0808"];
+    ctx.fillStyle = bases[v];
+    ctx.fillRect(x, y, size, size);
+    // mortar
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(x, y + size - 1, size, 1);
+    ctx.fillRect(x + size - 1, y, 1, size);
+    // glassy highlight
+    ctx.fillStyle = "rgba(255, 110, 42, 0.05)";
+    ctx.fillRect(x + 2, y + 2, size - 4, 2);
+    // red veins
+    if (variant % 5 === 0) {
+      ctx.fillStyle = "#7a1a0a";
+      ctx.fillRect(x + 4, y + size / 2, size - 10, 1);
+    }
+    // animated lava strip (every 3rd row column-wise)
+    if (variant % 9 === 0) {
+      const flicker = Math.floor(Math.sin(t / 220 + variant) * 1);
+      ctx.fillStyle = "#ff6e2a";
+      ctx.fillRect(x + 3, y + size - 7 + flicker, size - 6, 2);
+      ctx.fillStyle = "#ffd166";
+      ctx.fillRect(x + 5, y + size - 6 + flicker, size - 10, 1);
+    }
+    return;
+  }
+
+  if (id === "sakura") {
+    // Light wood plank floor with grain
+    const bases = ["#c89a6a", "#b88656", "#d4a878", "#a87a4a"];
+    ctx.fillStyle = bases[v];
+    ctx.fillRect(x, y, size, size);
+    // plank seams (horizontal)
+    ctx.fillStyle = "#6a4a2a";
+    ctx.fillRect(x, y + Math.floor(size / 2), size, 1);
+    ctx.fillRect(x, y + size - 1, size, 1);
+    // grain
+    ctx.fillStyle = "rgba(80, 50, 20, 0.25)";
+    ctx.fillRect(x + 4, y + 4, size - 8, 1);
+    ctx.fillRect(x + 2, y + size / 2 + 4, size - 4, 1);
+    // pink dust speckle
+    if (variant % 6 === 0) {
+      ctx.fillStyle = "rgba(255, 110, 199, 0.5)";
+      ctx.fillRect(x + 6, y + 8, 2, 2);
+    }
+    return;
+  }
+
+  if (id === "ice") {
+    const bases = ["#5a8acc", "#3a6aaa", "#7aaaee", "#2a4a7a"];
+    ctx.fillStyle = bases[v];
+    ctx.fillRect(x, y, size, size);
+    // ice block edges (highlight top-left, dark bottom-right)
+    ctx.fillStyle = "rgba(232, 244, 255, 0.5)";
+    ctx.fillRect(x + 1, y + 1, size - 2, 1);
+    ctx.fillRect(x + 1, y + 1, 1, size - 2);
+    ctx.fillStyle = "rgba(20, 47, 74, 0.6)";
+    ctx.fillRect(x + 1, y + size - 2, size - 2, 1);
+    ctx.fillRect(x + size - 2, y + 1, 1, size - 2);
+    // crystal shine
+    if (cracked) {
+      ctx.fillStyle = "#e8f4ff";
+      ctx.fillRect(x + 6, y + 6, 3, 1);
+      ctx.fillRect(x + 7, y + 5, 1, 1);
+    }
+    return;
+  }
+
+  if (id === "tech") {
+    const bases = ["#0e1f3a", "#0a1a2a", "#142a44", "#06121f"];
+    ctx.fillStyle = bases[v];
+    ctx.fillRect(x, y, size, size);
+    // metal panel seam
+    ctx.fillStyle = "#040810";
+    ctx.fillRect(x, y + size - 1, size, 1);
+    ctx.fillRect(x + size - 1, y, 1, size);
+    // circuit trace
+    if (variant % 4 === 0) {
+      ctx.fillStyle = "#9affd6";
+      ctx.fillRect(x + 4, y + size / 2, size - 8, 1);
+      ctx.fillRect(x + size / 2, y + 4, 1, size / 2 - 2);
+    }
+    // tiny LED
+    if (variant % 7 === 0) {
+      ctx.fillStyle = Math.floor(t / 400 + variant) % 2 === 0 ? "#ff3a6f" : "#9affd6";
+      ctx.fillRect(x + size - 6, y + 4, 2, 2);
+    }
+    return;
+  }
+
+  // ===== Default: stone brick (Ancient Dungeon) =====
+  // Brick layout: 2 rows, staggered. Within each "brick", apply variant tint.
+  const bases = ["#3a3850", "#332f48", "#403d56", "#2b2a40"];
+  const main = bases[v];
+  ctx.fillStyle = main;
   ctx.fillRect(x, y, size, size);
-  ctx.fillStyle = biome?.floorTrim || "#0e0a18";
+  // brick mortar (horizontal middle + side edges)
+  ctx.fillStyle = "#1a1726";
+  ctx.fillRect(x, y + Math.floor(size / 2), size, 1);
   ctx.fillRect(x, y + size - 1, size, 1);
   ctx.fillRect(x + size - 1, y, 1, size);
-  if (biome?.id === "tech") {
-    // neon wire lines
-    ctx.fillStyle = "rgba(154,255,214,0.18)";
-    if (v === 0) ctx.fillRect(x + 4, y + 10, size - 8, 1);
-    if (v === 2) ctx.fillRect(x + 14, y + 4, 1, size - 8);
-  } else if (biome?.id === "sakura") {
-    // petal speckles
-    ctx.fillStyle = "rgba(255,110,199,0.25)";
-    if (v === 0) ctx.fillRect(x + 6, y + 8, 2, 2);
-    if (v === 2) ctx.fillRect(x + 20, y + 16, 2, 2);
-  } else if (biome?.id === "hell") {
-    ctx.fillStyle = "rgba(255,110,42,0.15)";
-    if (v === 1) ctx.fillRect(x + 10, y + 14, 2, 1);
-  } else if (biome?.id === "ice") {
-    ctx.fillStyle = "rgba(232,244,255,0.18)";
-    if (v === 1) ctx.fillRect(x + 5, y + 6, 6, 1);
-    if (v === 3) ctx.fillRect(x + 14, y + 18, 5, 1);
-  } else {
-    ctx.fillStyle = "rgba(190,160,255,0.06)";
-    ctx.fillRect(x + 3, y + 5, 1, 1);
-    ctx.fillRect(x + 11, y + 18, 1, 1);
+  // brick split (staggered) — vertical mortar at different positions on top/bottom row
+  const topSplit = (Math.floor(x / size) + Math.floor(y / size)) % 2 === 0 ? Math.floor(size / 2) : 0;
+  if (topSplit > 0) ctx.fillRect(x + topSplit, y, 1, Math.floor(size / 2));
+  const botSplit = topSplit === 0 ? Math.floor(size / 2) : Math.floor(size * 0.25);
+  ctx.fillRect(x + botSplit, y + Math.floor(size / 2), 1, Math.floor(size / 2));
+  // top highlight
+  ctx.fillStyle = "rgba(255,255,255,0.06)";
+  ctx.fillRect(x + 1, y + 1, size - 2, 1);
+  // cracked-tile variations
+  if (cracked) {
+    ctx.fillStyle = "#1a1726";
+    ctx.fillRect(x + 4, y + 7, 4, 1);
+    ctx.fillRect(x + 7, y + 8, 1, 3);
+    ctx.fillRect(x + size - 10, y + size - 12, 5, 1);
+  }
+  // dust speck
+  if (variant % 5 === 0) {
+    ctx.fillStyle = "rgba(190,160,255,0.10)";
+    ctx.fillRect(x + 5, y + 4, 1, 1);
+    ctx.fillRect(x + size - 7, y + size - 9, 1, 1);
   }
 };
 
 export const drawWallTile = (ctx, x, y, size, biome) => {
-  ctx.fillStyle = biome?.wallBase || "#3a2a52";
+  const id = biome?.id || "dungeon";
+  // 3D shading: lighter top, darker bottom — across ALL biomes
+  let base, light, dark, edge, seam;
+  if (id === "hell") {
+    base = "#5a0a0a"; light = "#a8331a"; dark = "#1a0202"; edge = "#7a1a0a"; seam = "#000000";
+  } else if (id === "sakura") {
+    base = "#4aa05a"; light = "#9affb0"; dark = "#1f4a26"; edge = "#5aaa6a"; seam = "#0e2a14";
+  } else if (id === "ice") {
+    base = "#7aaaee"; light = "#e8f4ff"; dark = "#1f3a5a"; edge = "#a8ccee"; seam = "#0a1a2a";
+  } else if (id === "tech") {
+    base = "#2a4a6a"; light = "#5aaaee"; dark = "#040810"; edge = "#3a8acc"; seam = "#000000";
+  } else {
+    base = "#4a3a6a"; light = "#7a5a9a"; dark = "#1a0e2a"; edge = "#6a4a8a"; seam = "#161024";
+  }
+  // body
+  ctx.fillStyle = base;
   ctx.fillRect(x, y, size, size);
-  ctx.fillStyle = biome?.wallShade || "#241836";
-  ctx.fillRect(x, y + size - 4, size, 4);
-  ctx.fillStyle = biome?.wallEdge || "#52407a";
-  ctx.fillRect(x + 2, y + 2, size - 4, 2);
-  ctx.fillStyle = biome?.wallSeam || "#161024";
+  // top highlight (lighter)
+  ctx.fillStyle = light;
+  ctx.fillRect(x, y, size, 4);
+  ctx.fillRect(x + 1, y + 4, size - 2, 1);
+  // side highlight
+  ctx.fillStyle = edge;
+  ctx.fillRect(x, y, 2, size - 6);
+  // bottom shadow (darker, longer)
+  ctx.fillStyle = dark;
+  ctx.fillRect(x, y + size - 6, size, 6);
+  ctx.fillStyle = seam;
+  ctx.fillRect(x, y + size - 1, size, 1);
+  // brick mortar mid
+  ctx.fillStyle = seam;
   ctx.fillRect(x, y + Math.floor(size / 2), size, 1);
-  ctx.fillRect(x + Math.floor(size / 2), y, 1, Math.floor(size / 2));
-  ctx.fillRect(x + Math.floor(size / 4), y + Math.floor(size / 2), 1, Math.floor(size / 2));
-  // Bamboo accent for sakura
-  if (biome?.id === "sakura") {
+  // vertical brick splits (staggered)
+  const splitTop = (Math.floor(x / size) % 2 === 0) ? Math.floor(size / 2) : Math.floor(size * 0.25);
+  ctx.fillRect(x + splitTop, y, 1, Math.floor(size / 2));
+  const splitBot = splitTop === Math.floor(size / 2) ? Math.floor(size * 0.25) : Math.floor(size * 0.75);
+  ctx.fillRect(x + splitBot, y + Math.floor(size / 2), 1, Math.floor(size / 2));
+  // biome accents
+  if (id === "sakura") {
+    // bamboo segments
     ctx.fillStyle = "#aaeb6a";
-    ctx.fillRect(x + 6, y + 4, 2, size - 8);
-    ctx.fillRect(x + size - 8, y + 4, 2, size - 8);
+    ctx.fillRect(x + 6, y + 6, 2, size - 12);
+    ctx.fillRect(x + size - 8, y + 6, 2, size - 12);
     ctx.fillStyle = "#0e2a14";
-    ctx.fillRect(x + 6, y + 12, 2, 1);
-    ctx.fillRect(x + size - 8, y + 18, 2, 1);
+    ctx.fillRect(x + 6, y + Math.floor(size / 2), 2, 1);
+    ctx.fillRect(x + size - 8, y + Math.floor(size * 0.7), 2, 1);
+  } else if (id === "hell") {
+    // glowing crack
+    ctx.fillStyle = "#ff6e2a";
+    ctx.fillRect(x + Math.floor(size / 2), y + 8, 1, size - 18);
+  } else if (id === "tech") {
+    // neon wire seam
+    ctx.fillStyle = "#9affd6";
+    ctx.fillRect(x + 4, y + size - 9, size - 8, 1);
   }
 };
 
@@ -657,4 +793,110 @@ export const drawPetal = (ctx, x, y) => {
   ctx.fillRect(x, y, 2, 2);
   ctx.fillStyle = "#ffd1dc";
   ctx.fillRect(x + 1, y, 1, 1);
+};
+
+// ===== Wall-Mounted Torch (with flicker) =====
+// Drawn at top of a wall tile. dir: 'top' or 'bottom' (which wall row it belongs to).
+export const drawTorch = (ctx, x, y, size, t = 0, biome) => {
+  const s = size / 16;
+  const id = biome?.id || "dungeon";
+  // bracket (metal)
+  ctx.fillStyle = "#3a2a1a";
+  ctx.fillRect(x + 7 * s, y + 7 * s, 2 * s, 5 * s);
+  ctx.fillStyle = "#6a4a2a";
+  ctx.fillRect(x + 6 * s, y + 11 * s, 4 * s, 2 * s);
+  // handle wood
+  ctx.fillStyle = "#5a3a1a";
+  ctx.fillRect(x + 7 * s, y + 5 * s, 2 * s, 3 * s);
+  // flame
+  const flicker = Math.sin(t / 80) * 0.5 + Math.sin(t / 53) * 0.3;
+  const fy = Math.round(flicker);
+  let core, mid, outer;
+  if (id === "ice" || id === "tech") {
+    core = "#e8f4ff"; mid = "#9affd6"; outer = "#3a8acc";
+  } else if (id === "sakura") {
+    core = "#ffffff"; mid = "#ffd1dc"; outer = "#ff6ec7";
+  } else {
+    core = "#fff7c2"; mid = "#ffd166"; outer = "#ff6e2a";
+  }
+  // outer flame
+  ctx.fillStyle = outer;
+  ctx.fillRect(x + 5 * s, y + (2 + fy) * s, 6 * s, 3 * s);
+  ctx.fillRect(x + 6 * s, y + (0 + fy) * s, 4 * s, 2 * s);
+  // mid
+  ctx.fillStyle = mid;
+  ctx.fillRect(x + 6 * s, y + (3 + fy) * s, 4 * s, 2 * s);
+  ctx.fillRect(x + 7 * s, y + (1 + fy) * s, 2 * s, 2 * s);
+  // core
+  ctx.fillStyle = core;
+  ctx.fillRect(x + 7 * s, y + (3 + fy) * s, 2 * s, 1 * s);
+  // glow halo (semi-transparent)
+  const haloA = 0.18 + Math.sin(t / 120) * 0.04;
+  ctx.fillStyle = `rgba(255, 200, 110, ${haloA})`;
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 3, size * 0.85, 0, Math.PI * 2);
+  ctx.fill();
+};
+
+// ===== Rug / Platform (under robots, NPCs) =====
+export const drawRug = (ctx, x, y, size, biome) => {
+  const id = biome?.id || "dungeon";
+  let main, trim, dot;
+  if (id === "hell") { main = "#a8330a"; trim = "#ffd166"; dot = "#ff6e2a"; }
+  else if (id === "sakura") { main = "#ff6ec7"; trim = "#ffd1dc"; dot = "#9affd6"; }
+  else if (id === "ice") { main = "#5aaaee"; trim = "#e8f4ff"; dot = "#9affd6"; }
+  else if (id === "tech") { main = "#1f3a5a"; trim = "#9affd6"; dot = "#ff3a6f"; }
+  else { main = "#7a1a4a"; trim = "#f4bf4f"; dot = "#9affd6"; }
+  // shadow
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.fillRect(x + 2, y + size - 4, size - 4, 3);
+  // rug body (oval-ish via two rects)
+  ctx.fillStyle = main;
+  ctx.fillRect(x + 4, y + 4, size - 8, size - 8);
+  ctx.fillRect(x + 2, y + 8, size - 4, size - 16);
+  // trim border
+  ctx.fillStyle = trim;
+  ctx.fillRect(x + 4, y + 4, size - 8, 2);
+  ctx.fillRect(x + 4, y + size - 6, size - 8, 2);
+  ctx.fillRect(x + 4, y + 4, 2, size - 8);
+  ctx.fillRect(x + size - 6, y + 4, 2, size - 8);
+  // center motif
+  ctx.fillStyle = dot;
+  ctx.fillRect(x + size / 2 - 2, y + size / 2 - 2, 4, 4);
+  ctx.fillStyle = trim;
+  ctx.fillRect(x + size / 2 - 1, y + size / 2 - 1, 2, 2);
+};
+
+// ===== Mini-Map metallic frame =====
+export const drawMiniMapFrame = (ctx, x, y, w, h) => {
+  const out = 4;
+  // outer dark
+  ctx.fillStyle = "#0a0612";
+  ctx.fillRect(x - out, y - out, w + out * 2, h + out * 2);
+  // metallic gradient (light top -> dark bottom)
+  const grad = ctx.createLinearGradient(x - out, y - out, x - out, y + h + out);
+  grad.addColorStop(0, "#9aa5b8");
+  grad.addColorStop(0.45, "#5a6a8a");
+  grad.addColorStop(0.55, "#3a4a6a");
+  grad.addColorStop(1, "#1a2333");
+  ctx.fillStyle = grad;
+  ctx.fillRect(x - out, y - out, w + out * 2, out);
+  ctx.fillRect(x - out, y + h, w + out * 2, out);
+  ctx.fillRect(x - out, y - out, out, h + out * 2);
+  ctx.fillRect(x + w, y - out, out, h + out * 2);
+  // bolt rivets (corners)
+  const drawBolt = (bx, by) => {
+    ctx.fillStyle = "#1a1f2a";
+    ctx.fillRect(bx, by, 3, 3);
+    ctx.fillStyle = "#cce2f4";
+    ctx.fillRect(bx, by, 1, 1);
+  };
+  drawBolt(x - out + 1, y - out + 1);
+  drawBolt(x + w + out - 4, y - out + 1);
+  drawBolt(x - out + 1, y + h + out - 4);
+  drawBolt(x + w + out - 4, y + h + out - 4);
+  // inner inset shadow
+  ctx.strokeStyle = "rgba(0,0,0,0.6)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x - 0.5, y - 0.5, w + 1, h + 1);
 };
