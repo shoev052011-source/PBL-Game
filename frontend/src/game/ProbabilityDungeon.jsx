@@ -160,7 +160,7 @@ const buildRoom = (index, total, biome, level) => {
   };
 };
 
-export default function ProbabilityDungeon({ biomeId, onExit }) {
+export default function ProbabilityDungeon({ biomeId, level = 1, onExit }) {
   const canvasRef = useRef(null);
   const stateRef = useRef(null);
   const keysRef = useRef({});
@@ -177,7 +177,7 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
 
   const initGame = useCallback(() => {
     const rooms = [];
-    for (let i = 0; i < TOTAL_ROOMS; i++) rooms.push(buildRoom(i, TOTAL_ROOMS, biome));
+    for (let i = 0; i < TOTAL_ROOMS; i++) rooms.push(buildRoom(i, TOTAL_ROOMS, biome, level));
     stateRef.current = {
       rooms, currentRoom: 0,
       player: {
@@ -191,7 +191,7 @@ export default function ProbabilityDungeon({ biomeId, onExit }) {
     };
     setHudHp(3); setHudRoom(1); setHudCoinsRun(0);
     petalsRef.current = [];
-  }, [biome]);
+  }, [biome, level]);
 
   const isWallSolid = (w) => {
     if (w.kind === "wall" || w.kind === "wall-pillar") return true;
