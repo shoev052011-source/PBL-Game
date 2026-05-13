@@ -217,28 +217,88 @@ export const drawDoorTile = (ctx, x, y, size, locked) => {
 };
 
 export const drawPillar = (ctx, x, y, size, biome) => {
-  ctx.fillStyle = "rgba(0,0,0,0.4)";
-  ctx.fillRect(x + 3, y + size - 3, size - 6, 3);
-  ctx.fillStyle = biome?.pillarColor || "#4a3a6a";
-  ctx.fillRect(x + 4, y + 2, size - 8, size - 6);
-  ctx.fillStyle = biome?.pillarHighlight || "#5a4a82";
-  ctx.fillRect(x + 4, y + 2, 2, size - 6);
-  ctx.fillStyle = biome?.pillarShade || "#2a1a3a";
-  ctx.fillRect(x + size - 6, y + 2, 2, size - 6);
-  ctx.fillStyle = biome?.pillarHighlight || "#6a5a92";
-  ctx.fillRect(x + 2, y, size - 4, 4);
-  ctx.fillStyle = biome?.pillarShade || "#3a2a52";
-  ctx.fillRect(x + 2, y + 4, size - 4, 1);
-  ctx.fillStyle = biome?.pillarHighlight || "#6a5a92";
-  ctx.fillRect(x + 2, y + size - 5, size - 4, 3);
-  // Hell: glowing crack
-  if (biome?.id === "hell") {
-    ctx.fillStyle = "#ff6e2a";
-    ctx.fillRect(x + size / 2, y + 6, 1, size - 14);
-  } else if (biome?.id === "tech") {
-    ctx.fillStyle = "#9affd6";
-    ctx.fillRect(x + size / 2 - 1, y + 6, 2, 2);
-    ctx.fillRect(x + size / 2 - 1, y + size - 10, 2, 2);
+  const id = biome?.id || "dungeon";
+  // ---- Soft cast shadow on the floor (ellipse-like via stacked rects) ----
+  ctx.fillStyle = "rgba(0,0,0,0.32)";
+  ctx.fillRect(x + 4, y + size - 2, size - 8, 3);
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.fillRect(x + 2, y + size - 4, size - 4, 2);
+  ctx.fillStyle = "rgba(0,0,0,0.14)";
+  ctx.fillRect(x + 1, y + size - 6, size - 2, 2);
+
+  // ---- Palette ----
+  // Stone-grey base with biome accent
+  let stone, stoneLight, stoneDark, accent;
+  if (id === "hell") { stone = "#3a2a2a"; stoneLight = "#6a4a3a"; stoneDark = "#1a0a0a"; accent = "#ff6e2a"; }
+  else if (id === "sakura") { stone = "#7a6a5a"; stoneLight = "#a89a8a"; stoneDark = "#3a2a1a"; accent = "#ff6ec7"; }
+  else if (id === "ice") { stone = "#6a8aaa"; stoneLight = "#cce2f4"; stoneDark = "#1a2f4a"; accent = "#9affd6"; }
+  else if (id === "tech") { stone = "#3a4a6a"; stoneLight = "#7aaaee"; stoneDark = "#0a1a2a"; accent = "#9affd6"; }
+  else { stone = "#5a5060"; stoneLight = "#8a8090"; stoneDark = "#2a2030"; accent = "#b07cff"; }
+
+  // ---- Rubble at base ----
+  ctx.fillStyle = stoneDark;
+  ctx.fillRect(x + 3, y + size - 9, size - 6, 5);
+  ctx.fillStyle = stone;
+  ctx.fillRect(x + 2, y + size - 11, 6, 4);
+  ctx.fillRect(x + size - 10, y + size - 10, 5, 4);
+  ctx.fillRect(x + size / 2 - 3, y + size - 12, 6, 5);
+  ctx.fillStyle = stoneLight;
+  ctx.fillRect(x + 2, y + size - 11, 2, 1);
+  ctx.fillRect(x + size - 10, y + size - 10, 2, 1);
+  ctx.fillRect(x + size / 2 - 3, y + size - 12, 2, 1);
+
+  // ---- Column shaft (BROKEN: jagged top) ----
+  const colX = x + Math.floor(size / 2) - 5;
+  const colW = 10;
+  // shaft body
+  ctx.fillStyle = stone;
+  ctx.fillRect(colX, y + 6, colW, size - 16);
+  // left highlight
+  ctx.fillStyle = stoneLight;
+  ctx.fillRect(colX, y + 6, 2, size - 16);
+  // right shadow
+  ctx.fillStyle = stoneDark;
+  ctx.fillRect(colX + colW - 2, y + 6, 2, size - 16);
+  // mid groove
+  ctx.fillStyle = stoneDark;
+  ctx.fillRect(colX + 4, y + 8, 1, size - 20);
+  // crack
+  ctx.fillStyle = stoneDark;
+  ctx.fillRect(colX + 6, y + 14, 1, 6);
+  ctx.fillRect(colX + 7, y + 17, 1, 3);
+
+  // ---- BROKEN top (jagged silhouette) ----
+  // top base capital
+  ctx.fillStyle = stone;
+  ctx.fillRect(colX - 2, y + 4, colW + 4, 3);
+  ctx.fillStyle = stoneLight;
+  ctx.fillRect(colX - 2, y + 4, colW + 4, 1);
+  // jagged break
+  ctx.fillStyle = stone;
+  ctx.fillRect(colX, y + 2, 3, 2);
+  ctx.fillRect(colX + 5, y + 1, 2, 3);
+  ctx.fillRect(colX + colW - 3, y + 3, 3, 1);
+  ctx.fillStyle = stoneLight;
+  ctx.fillRect(colX, y + 2, 1, 1);
+  ctx.fillRect(colX + 5, y + 1, 1, 1);
+  // dark notch (broken void)
+  ctx.fillStyle = stoneDark;
+  ctx.fillRect(colX + 3, y + 2, 2, 2);
+  ctx.fillRect(colX + 7, y + 3, 1, 1);
+
+  // ---- Biome accent glow ----
+  if (id === "hell") {
+    ctx.fillStyle = accent;
+    ctx.fillRect(colX + 5, y + 16, 1, size - 30);
+  } else if (id === "tech") {
+    ctx.fillStyle = accent;
+    ctx.fillRect(colX + 4, y + 10, 2, 1);
+    ctx.fillRect(colX + 4, y + size - 14, 2, 1);
+  } else if (id === "sakura") {
+    // ivy speck
+    ctx.fillStyle = "#aaeb6a";
+    ctx.fillRect(colX - 1, y + size - 13, 2, 2);
+    ctx.fillRect(colX + colW - 1, y + size - 16, 2, 2);
   }
 };
 
@@ -792,6 +852,97 @@ export const drawShatter = (ctx, x, y, size, progress, color = "#e9e6d8") => {
     ctx.fillRect(sx - 2, sy - 2, 4, 4);
   }
   ctx.globalAlpha = 1;
+};
+
+// ===== Altar / Platform (under stationary robots, against top wall) =====
+export const drawAltar = (ctx, x, y, size, biome) => {
+  const id = biome?.id || "dungeon";
+  let stone, light, dark, glow;
+  if (id === "hell") { stone = "#3a1a14"; light = "#7a3a20"; dark = "#1a0a08"; glow = "#ff6e2a"; }
+  else if (id === "sakura") { stone = "#a08470"; light = "#d8c0a0"; dark = "#4a3a2a"; glow = "#ff6ec7"; }
+  else if (id === "ice") { stone = "#5a8aaa"; light = "#cce2f4"; dark = "#1a2f4a"; glow = "#9affd6"; }
+  else if (id === "tech") { stone = "#1f3a5a"; light = "#5aaaee"; dark = "#040810"; glow = "#9affd6"; }
+  else { stone = "#5a5060"; light = "#8a8090"; dark = "#2a2030"; glow = "#b07cff"; }
+  // shadow
+  ctx.fillStyle = "rgba(0,0,0,0.32)";
+  ctx.fillRect(x + 2, y + size - 2, size - 4, 3);
+  // step base (wider)
+  ctx.fillStyle = stone;
+  ctx.fillRect(x, y + size - 8, size, 7);
+  ctx.fillStyle = light;
+  ctx.fillRect(x, y + size - 8, size, 2);
+  ctx.fillStyle = dark;
+  ctx.fillRect(x, y + size - 2, size, 2);
+  // top platform (slightly narrower)
+  ctx.fillStyle = stone;
+  ctx.fillRect(x + 4, y + size - 14, size - 8, 7);
+  ctx.fillStyle = light;
+  ctx.fillRect(x + 4, y + size - 14, size - 8, 2);
+  ctx.fillStyle = dark;
+  ctx.fillRect(x + 4, y + size - 8, size - 8, 1);
+  // runic glow line
+  ctx.fillStyle = glow;
+  ctx.fillRect(x + 6, y + size - 12, size - 12, 1);
+  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  ctx.fillRect(x + 6, y + size - 11, size - 12, 1);
+};
+
+// ===== Floor Decor (debris / moss / cracked) — overlay on ~10% of tiles =====
+// kind: 0 = debris (rubble), 1 = moss patch, 2 = cracked stone
+export const drawFloorDecor = (ctx, x, y, size, kind, biome) => {
+  const id = biome?.id || "dungeon";
+  if (kind === 0) {
+    let c1, c2;
+    if (id === "hell") { c1 = "#3a1a14"; c2 = "#7a3a20"; }
+    else if (id === "sakura") { c1 = "#3a2a1a"; c2 = "#7a5a3a"; }
+    else if (id === "ice") { c1 = "#2a4a7a"; c2 = "#cce2f4"; }
+    else if (id === "tech") { c1 = "#0a1a2a"; c2 = "#3a8acc"; }
+    else { c1 = "#1a1726"; c2 = "#6a5a8a"; }
+    ctx.fillStyle = c1;
+    ctx.fillRect(x + 6, y + 10, 4, 3);
+    ctx.fillRect(x + size - 11, y + size - 13, 5, 3);
+    ctx.fillStyle = c2;
+    ctx.fillRect(x + 6, y + 10, 1, 1);
+    ctx.fillRect(x + size - 11, y + size - 13, 1, 1);
+    ctx.fillRect(x + 9, y + 11, 1, 1);
+    ctx.fillRect(x + size - 8, y + size - 12, 1, 1);
+    ctx.fillStyle = c1;
+    ctx.fillRect(x + Math.floor(size / 2) + 3, y + 6, 2, 2);
+  } else if (kind === 1) {
+    if (id === "ice") {
+      ctx.fillStyle = "rgba(232,244,255,0.55)";
+      ctx.fillRect(x + 4, y + 18, 7, 2);
+      ctx.fillRect(x + 12, y + 14, 5, 2);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(x + 5, y + 18, 2, 1);
+      return;
+    }
+    let mossA = "#3a8a4a", mossB = "#9affd6", mossDark = "#1f4a26";
+    if (id === "hell") { mossA = "#7a1a0a"; mossB = "#ff6e2a"; mossDark = "#3a0a02"; }
+    else if (id === "sakura") { mossA = "#ff6ec7"; mossB = "#ffd1dc"; mossDark = "#7a1a4a"; }
+    else if (id === "tech") { mossA = "#9affd6"; mossB = "#3a8acc"; mossDark = "#0a1a2a"; }
+    ctx.fillStyle = mossDark;
+    ctx.fillRect(x + 4, y + 16, 9, 4);
+    ctx.fillRect(x + 14, y + 6, 6, 3);
+    ctx.fillStyle = mossA;
+    ctx.fillRect(x + 4, y + 16, 9, 2);
+    ctx.fillRect(x + 14, y + 6, 6, 2);
+    ctx.fillStyle = mossB;
+    ctx.fillRect(x + 5, y + 16, 1, 1);
+    ctx.fillRect(x + 8, y + 16, 1, 1);
+    ctx.fillRect(x + 11, y + 16, 1, 1);
+    ctx.fillRect(x + 15, y + 6, 1, 1);
+    ctx.fillRect(x + 18, y + 6, 1, 1);
+  } else {
+    ctx.fillStyle = "#0e0a18";
+    ctx.fillRect(x + 4, y + 8, 8, 1);
+    ctx.fillRect(x + 8, y + 9, 1, 5);
+    ctx.fillRect(x + 9, y + 14, 4, 1);
+    ctx.fillRect(x + size - 13, y + size - 11, 7, 1);
+    ctx.fillRect(x + size - 11, y + size - 14, 1, 3);
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    ctx.fillRect(x + 4, y + 9, 8, 1);
+  }
 };
 
 // ===== Sakura petal particle =====

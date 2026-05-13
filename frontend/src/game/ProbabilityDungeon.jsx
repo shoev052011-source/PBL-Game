@@ -7,7 +7,7 @@ import { generateQuestion } from "./math";
 import {
   drawFloorTile, drawWallTile, drawDoorTile, drawPillar, drawPit, drawChest,
   drawPlayer, drawRobot, drawSlash, drawShatter, drawTwinBeam, drawPetal,
-  drawTorch, drawRug, drawMiniMapFrame,
+  drawTorch, drawMiniMapFrame, drawAltar, drawFloorDecor,
   MOB_DRAWERS,
 } from "./sprites";
 import {
@@ -17,31 +17,31 @@ import {
 import { toast } from "sonner";
 
 const TILE = 32;
-const COLS = 20;
-const ROWS = 14;
-const W = COLS * TILE;
-const H = ROWS * TILE;
-const PLAYER_SIZE = 26;
-const ENEMY_SIZE = 26;
-const NPC_SIZE = 32;
+const COLS = 22;
+const ROWS = 16;
+const W = COLS * TILE; // 704
+const H = ROWS * TILE; // 512
+const PLAYER_SIZE = 28;
+const ENEMY_SIZE = 28;
+const NPC_SIZE = 34; // robot slightly larger than player
 const CHEST_SIZE = 30;
-const PLAYER_SPEED = 2.2;
-const ENEMY_SPEED = 1.05;
-const ATTACK_RANGE = 36;
+const PLAYER_SPEED = 2.3;
+const ENEMY_SPEED = 1.1;
+const ATTACK_RANGE = 38;
 const ATTACK_DURATION_MS = 220;
 const IFRAME_MS = 700;
-const SAFETY_BUFFER_PX = 56;
-const ROBOT_PROXIMITY_PX = 48;
-const CHEST_PROXIMITY_PX = 34;
+const SAFETY_BUFFER_PX = 72; // a bit wider so wall closure can't clip player
+const ROBOT_PROXIMITY_PX = 50;
+const CHEST_PROXIMITY_PX = 36;
 const TOTAL_ROOMS = 3;
-const BEAM_LENGTH = 320;
+const BEAM_LENGTH = 360;
 const BEAM_DMG_INTERVAL_MS = 240;
 
 const aabb = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 
-const ENTRANCE_TILE = { x: 0, y: 7 * TILE };
-const EXIT_TILE = { x: (COLS - 1) * TILE, y: 7 * TILE };
+const ENTRANCE_TILE = { x: 0, y: 8 * TILE };
+const EXIT_TILE = { x: (COLS - 1) * TILE, y: 8 * TILE };
 
 const buildRoomWalls = () => {
   const walls = [];
@@ -56,34 +56,52 @@ const buildRoomWalls = () => {
   return walls;
 };
 
-// Obstacle layouts per room index (20x14 grid)
+// Obstacle layouts per room index (22x16 grid). Inner area cols 1..20, rows 1..14.
+// Symmetric pillar placements to feel architectural; pits used sparingly as decor.
 const ROOM_OBSTACLES = [
-  [{ kind: "P", c: 9, r: 4 }, { kind: "P", c: 11, r: 4 }, { kind: "P", c: 9, r: 9 }, { kind: "P", c: 11, r: 9 }],
-  [{ kind: "P", c: 6, r: 5 }, { kind: "P", c: 13, r: 8 }, { kind: ".", c: 10, r: 6 }, { kind: ".", c: 10, r: 7 }],
-  [{ kind: "P", c: 7, r: 3 }, { kind: "P", c: 7, r: 10 }, { kind: "P", c: 14, r: 3 }, { kind: "P", c: 14, r: 10 }],
-  [{ kind: "P", c: 5, r: 7 }, { kind: "P", c: 10, r: 4 }, { kind: "P", c: 15, r: 9 }, { kind: ".", c: 8, r: 7 }, { kind: ".", c: 12, r: 6 }],
-  [{ kind: "P", c: 6, r: 4 }, { kind: "P", c: 6, r: 10 }, { kind: "P", c: 13, r: 4 }, { kind: "P", c: 13, r: 10 }, { kind: ".", c: 10, r: 5 }, { kind: ".", c: 10, r: 8 }],
-  [{ kind: "P", c: 8, r: 6 }, { kind: "P", c: 11, r: 6 }, { kind: "P", c: 8, r: 8 }, { kind: "P", c: 11, r: 8 }, { kind: ".", c: 5, r: 7 }, { kind: ".", c: 14, r: 7 }],
+  [ // room 0
+    { kind: "P", c: 7, r: 5 }, { kind: "P", c: 14, r: 5 },
+    { kind: "P", c: 7, r: 10 }, { kind: "P", c: 14, r: 10 },
+    { kind: ".", c: 10, r: 7 }, { kind: ".", c: 11, r: 7 },
+  ],
+  [ // room 1
+    { kind: "P", c: 5, r: 4 }, { kind: "P", c: 16, r: 4 },
+    { kind: "P", c: 5, r: 11 }, { kind: "P", c: 16, r: 11 },
+    { kind: "P", c: 10, r: 7 }, { kind: "P", c: 11, r: 8 },
+    { kind: ".", c: 4, r: 8 }, { kind: ".", c: 17, r: 7 },
+  ],
+  [ // room 2 (final)
+    { kind: "P", c: 6, r: 4 }, { kind: "P", c: 15, r: 4 },
+    { kind: "P", c: 6, r: 11 }, { kind: "P", c: 15, r: 11 },
+    { kind: "P", c: 10, r: 4 }, { kind: "P", c: 11, r: 11 },
+    { kind: "P", c: 8, r: 8 }, { kind: "P", c: 13, r: 8 },
+    { kind: ".", c: 10, r: 8 }, { kind: ".", c: 11, r: 7 },
+  ],
 ];
-// Chest spawn points — in CORNERS (per new requirement)
+// Chests in FAR CORNERS, tucked behind pillars when possible
 const ROOM_CHESTS = [
-  [{ c: 2, r: 2 }, { c: 17, r: 11 }],
-  [{ c: 17, r: 2 }, { c: 2, r: 11 }],
-  [{ c: 2, r: 2 }, { c: 17, r: 11 }],
-  [{ c: 2, r: 11 }, { c: 17, r: 2 }],
-  [{ c: 2, r: 2 }, { c: 17, r: 2 }],
-  [{ c: 2, r: 11 }, { c: 17, r: 11 }],
+  [{ c: 2, r: 2 }, { c: 19, r: 13 }],
+  [{ c: 19, r: 2 }, { c: 2, r: 13 }],
+  [{ c: 2, r: 13 }, { c: 19, r: 2 }],
 ];
-// Wall-mounted torch positions (col, row, side: 'top'|'bottom')
-// Always on the wall row/col itself.
+// Wall-mounted torch positions
 const ROOM_TORCHES = [
-  // Spread torches on top/bottom walls
-  [{ c: 4, r: 0 }, { c: 10, r: 0 }, { c: 15, r: 0 }, { c: 4, r: 13 }, { c: 10, r: 13 }, { c: 15, r: 13 }],
-  [{ c: 3, r: 0 }, { c: 9, r: 0 }, { c: 16, r: 0 }, { c: 5, r: 13 }, { c: 14, r: 13 }],
-  [{ c: 5, r: 0 }, { c: 11, r: 0 }, { c: 16, r: 0 }, { c: 4, r: 13 }, { c: 11, r: 13 }, { c: 16, r: 13 }],
-  [{ c: 3, r: 0 }, { c: 8, r: 0 }, { c: 13, r: 0 }, { c: 17, r: 0 }, { c: 8, r: 13 }, { c: 13, r: 13 }],
-  [{ c: 4, r: 0 }, { c: 10, r: 0 }, { c: 16, r: 0 }, { c: 4, r: 13 }, { c: 10, r: 13 }, { c: 16, r: 13 }],
-  [{ c: 5, r: 0 }, { c: 10, r: 0 }, { c: 15, r: 0 }, { c: 5, r: 13 }, { c: 10, r: 13 }, { c: 15, r: 13 }],
+  [{ c: 4, r: 0 }, { c: 10, r: 0 }, { c: 17, r: 0 }, { c: 4, r: 15 }, { c: 10, r: 15 }, { c: 17, r: 15 }],
+  [{ c: 3, r: 0 }, { c: 11, r: 0 }, { c: 18, r: 0 }, { c: 6, r: 15 }, { c: 14, r: 15 }],
+  [{ c: 5, r: 0 }, { c: 10, r: 0 }, { c: 15, r: 0 }, { c: 5, r: 15 }, { c: 10, r: 15 }, { c: 15, r: 15 }],
+];
+
+// Four-corner spawn quadrants for skeletons/mobs (avoid the entrance/exit lane y=8)
+const CORNER_QUADRANTS = [
+  { x0: 3, x1: 8, y0: 2, y1: 6 },   // top-left
+  { x0: 13, x1: 18, y0: 2, y1: 6 },  // top-right
+  { x0: 3, x1: 8, y0: 10, y1: 13 }, // bottom-left
+  { x0: 13, x1: 18, y0: 10, y1: 13 },// bottom-right
+];
+
+// Robot altar positions — anchored on top wall (row 1, inside) on specific columns
+const ROBOT_ALTAR_SLOTS = [
+  { c: 10, r: 1 }, { c: 11, r: 1 }, { c: 6, r: 1 }, { c: 15, r: 1 },
 ];
 
 const buildRoom = (index, total, biome, level) => {
@@ -100,18 +118,25 @@ const buildRoom = (index, total, biome, level) => {
   }
   const pits = obstacles.filter((o) => o.kind === "pit");
 
-  // Biome-specific mobs — count scales with level too
+  // Biome-specific mobs — spawn in 4 CORNER QUADRANTS (avoid the center)
   const mobTypes = biome.mobs;
-  const levelBoost = Math.floor((level - 1) / 5); // +0..+2 mobs across the 15 levels
+  const levelBoost = Math.floor((level - 1) / 5);
   const mobCount = Math.min(3 + Math.floor(index * 0.7) + levelBoost, 8);
   const mobHp = 2 + Math.floor(index / 2) + Math.floor((level - 1) / 4);
   const mobs = [];
   for (let i = 0; i < mobCount; i++) {
+    // Distribute roughly evenly across the 4 corners
+    const q = CORNER_QUADRANTS[i % CORNER_QUADRANTS.length];
     let tries = 0;
-    while (tries < 30) {
-      const sx = 5 * TILE + Math.random() * (W - 7 * TILE);
-      const sy = 2 * TILE + Math.random() * (H - 4 * TILE);
-      if (sx > 5 * TILE) {
+    while (tries < 25) {
+      const cx = q.x0 + Math.floor(Math.random() * (q.x1 - q.x0 + 1));
+      const cy = q.y0 + Math.floor(Math.random() * (q.y1 - q.y0 + 1));
+      const sx = cx * TILE + (TILE - ENEMY_SIZE) / 2;
+      const sy = cy * TILE + (TILE - ENEMY_SIZE) / 2;
+      const candidate = { x: sx, y: sy, w: ENEMY_SIZE, h: ENEMY_SIZE };
+      // skip if overlaps a pillar
+      const blocked = walls.some((w) => w.kind === "wall-pillar" && aabb(candidate, w));
+      if (!blocked) {
         mobs.push({
           id: `mb-${index}-${i}`, type: mobTypes[i % mobTypes.length],
           x: sx, y: sy, w: ENEMY_SIZE, h: ENEMY_SIZE,
@@ -124,18 +149,20 @@ const buildRoom = (index, total, biome, level) => {
     }
   }
 
-  const robotSpots = [
-    { x: 8 * TILE, y: 3 * TILE },
-    { x: 12 * TILE, y: 10 * TILE },
-    { x: 14 * TILE, y: 4 * TILE },
-    { x: 5 * TILE, y: 10 * TILE },
-  ];
+  // Robots are anchored against the TOP wall on altar tiles
   const robotCount = index === 0 ? 1 : Math.random() < 0.6 ? 1 : 2;
   const robots = [];
   for (let i = 0; i < robotCount; i++) {
-    const spot = robotSpots[(index + i) % robotSpots.length];
+    const slot = ROBOT_ALTAR_SLOTS[(index + i) % ROBOT_ALTAR_SLOTS.length];
+    const ax = slot.c * TILE;
+    const ay = slot.r * TILE;
     robots.push({
-      id: `rb-${index}-${i}`, x: spot.x, y: spot.y, w: NPC_SIZE, h: NPC_SIZE,
+      id: `rb-${index}-${i}`,
+      // robot sprite centered above altar (visually rests on the platform top)
+      x: ax + (TILE - NPC_SIZE) / 2,
+      y: ay + (TILE - NPC_SIZE) / 2 + 2,
+      w: NPC_SIZE, h: NPC_SIZE,
+      altar: { x: ax, y: ay, w: TILE, h: TILE }, // for drawing platform underneath
       exitClicks: 0, destroyed: false, isCompleted: false,
       question: generateQuestion(biome.mathTier, level),
     });
@@ -274,22 +301,25 @@ export default function ProbabilityDungeon({ biomeId, level = 1, onExit }) {
         if (Math.abs(player.vx) + Math.abs(player.vy) > 0.4) sfxStep();
       }
 
-      // ----- Room lock with Safety Buffer -----
+      // ----- Room lock with Safety Buffer (no clipping past door) -----
       if (!room.locked) {
+        const entrance = room.walls.find((w) => w.kind === "door-entrance");
         const px = player.x + player.w / 2, py = player.y + player.h / 2;
         const ex = ENTRANCE_TILE.x + TILE / 2, ey = ENTRANCE_TILE.y + TILE / 2;
-        if (dist(px, py, ex, ey) >= SAFETY_BUFFER_PX) {
-          const entrance = room.walls.find((w) => w.kind === "door-entrance");
+        // Two conditions must hold before we slam the entrance shut:
+        // (1) player center is at least SAFETY_BUFFER_PX from the door center,
+        // (2) the entrance tile, if turned solid, would NOT overlap the player's hitbox.
+        const farEnough = dist(px, py, ex, ey) >= SAFETY_BUFFER_PX;
+        const wouldClip = entrance && aabb(
+          { x: player.x - 2, y: player.y - 2, w: player.w + 4, h: player.h + 4 },
+          entrance,
+        );
+        if (farEnough && !wouldClip) {
           if (entrance) entrance.solid = true;
           room.locked = true;
           sfxLock();
-          if (entrance && aabb(player, entrance)) {
-            player.x = W / 2 - player.w / 2;
-            player.y = H / 2 - player.h / 2;
-          }
-        } else {
-          const entrance = room.walls.find((w) => w.kind === "door-entrance");
-          if (entrance) entrance.solid = false;
+        } else if (entrance) {
+          entrance.solid = false;
         }
       }
 
@@ -487,18 +517,33 @@ export default function ProbabilityDungeon({ biomeId, level = 1, onExit }) {
 
   const render = (ctx, st) => {
     const room = st.rooms[st.currentRoom];
-    // Floor (animated for hell)
+    // Floor base
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         drawFloorTile(ctx, c * TILE, r * TILE, TILE, (r * 7 + c) % 4, biome, st.time);
       }
     }
+    // Floor decor overlay (~10% of tiles, deterministic per-room via room index + cell)
+    for (let r = 1; r < ROWS - 1; r++) {
+      for (let c = 1; c < COLS - 1; c++) {
+        const seed = (st.currentRoom * 131 + r * 19 + c * 7) % 100;
+        if (seed < 10) {
+          const kind = seed % 3; // 0=debris, 1=moss, 2=cracked
+          // skip cells that contain pillars/pits/altars/chests by quick check
+          const cellRect = { x: c * TILE, y: r * TILE, w: TILE, h: TILE };
+          const blocked = room.walls.some((w) => w.kind === "wall-pillar" && aabb(cellRect, w))
+            || room.chests.some((ch) => aabb(cellRect, ch))
+            || room.robots.some((rb) => rb.altar && aabb(cellRect, rb.altar));
+          if (!blocked) drawFloorDecor(ctx, c * TILE, r * TILE, TILE, kind, biome);
+        }
+      }
+    }
     // Pits
     for (const p of room.pits) drawPit(ctx, p.x, p.y, TILE, biome, st.time);
-    // Rugs under robots (drawn under)
+    // Altars (under robots, drawn before walls so they sit on floor)
     for (const r of room.robots) {
-      if (r.destroyed) continue;
-      drawRug(ctx, r.x - 6, r.y - 4, NPC_SIZE + 12, biome);
+      if (r.destroyed || !r.altar) continue;
+      drawAltar(ctx, r.altar.x, r.altar.y, TILE, biome);
     }
     // Walls
     for (const w of room.walls) {
@@ -578,11 +623,11 @@ export default function ProbabilityDungeon({ biomeId, level = 1, onExit }) {
     const doorExit = room.walls.find((w) => w.kind === "door-exit");
     if (doorEntr) {
       ctx.fillStyle = doorEntr.solid ? "#ff3a6f" : "#9affd6";
-      ctx.fillRect(MM_X, MM_Y + Math.floor(MM_H * 7 / ROWS), 4, Math.ceil(MM_H / ROWS));
+      ctx.fillRect(MM_X, MM_Y + Math.floor(MM_H * 8 / ROWS), 4, Math.ceil(MM_H / ROWS));
     }
     if (doorExit) {
       ctx.fillStyle = doorExit.solid ? "#ff3a6f" : "#9affd6";
-      ctx.fillRect(MM_X + MM_W - 4, MM_Y + Math.floor(MM_H * 7 / ROWS), 4, Math.ceil(MM_H / ROWS));
+      ctx.fillRect(MM_X + MM_W - 4, MM_Y + Math.floor(MM_H * 8 / ROWS), 4, Math.ceil(MM_H / ROWS));
     }
     // pillars
     ctx.fillStyle = biome.pillarColor;
@@ -610,15 +655,16 @@ export default function ProbabilityDungeon({ biomeId, level = 1, onExit }) {
       ctx.fillStyle = r.isCompleted ? "#5a8a7a" : "#9affd6";
       ctx.fillRect(MM_X + Math.floor((r.x / W) * MM_W), MM_Y + Math.floor((r.y / H) * MM_H), 4, 4);
     }
-    // mobs
+    // mobs (RED dots)
     for (const m of room.mobs) {
       if (!m.alive) continue;
-      ctx.fillStyle = "#ff3a6f";
-      ctx.fillRect(MM_X + Math.floor((m.x / W) * MM_W), MM_Y + Math.floor((m.y / H) * MM_H), 3, 3);
+      ctx.fillStyle = "#ff3a3a";
+      ctx.fillRect(MM_X + Math.floor((m.x / W) * MM_W), MM_Y + Math.floor((m.y / H) * MM_H), 4, 4);
     }
-    // player (blinks)
-    ctx.fillStyle = Math.floor(st.time / 250) % 2 === 0 ? "#ffffff" : "#9affd6";
-    ctx.fillRect(MM_X + Math.floor((st.player.x / W) * MM_W), MM_Y + Math.floor((st.player.y / H) * MM_H), 4, 4);
+    // player (GREEN dot, blinking)
+    const playerDot = Math.floor(st.time / 250) % 2 === 0 ? "#00ff66" : "#9affc2";
+    ctx.fillStyle = playerDot;
+    ctx.fillRect(MM_X + Math.floor((st.player.x / W) * MM_W), MM_Y + Math.floor((st.player.y / H) * MM_H), 5, 5);
     // label on the frame (positioned below the top metallic band so it doesn't clip)
     ctx.fillStyle = "#e8f4ff";
     ctx.font = "10px monospace";
